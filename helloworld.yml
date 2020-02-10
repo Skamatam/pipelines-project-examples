@@ -13,7 +13,7 @@ pipelines:
     steps:
       - name: step_1
         type: Bash
-        configuration:
+        #configuration:
           #inputResources:
            # - name: myApprepo1
         execution:
