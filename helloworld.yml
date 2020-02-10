@@ -14,8 +14,8 @@ pipelines:
       - name: step_1
         type: Bash
         configuration:
-          inputResources:
-          #  - name: myApprepo1
+          #inputResources:
+           # - name: myApprepo1
         execution:
           onExecute:
             - printenv
