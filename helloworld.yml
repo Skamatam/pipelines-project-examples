@@ -3,7 +3,7 @@ resources:
   - name: myApprepo1
     type: GitRepo
     configuration:
-      gitProvider: pipelinetest   # replace with your integration
+      gitProvider: test1   # replace with your integration
       path: Skamatam/pipelines-project-examples    # replace with your repository name
       branches:
         include: master
