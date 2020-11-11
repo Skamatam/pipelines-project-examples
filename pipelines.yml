@@ -1,0 +1,98 @@
+resources:
+  - name: webhook
+    type: IncomingWebhook
+    configuration:
+      webhookName: debDistribute
+      
+  - name: release_bundle
+    type: ReleaseBundle
+    configuration:
+      sourceDistribution: StDistribution
+      name: ${app_name}
+      version: ${app_version}
+
+  # Signed version of the same release bundle
+  - name: signed_bundle
+    type: ReleaseBundle
+    configuration:
+      sourceDistribution: StDistribution
+      name: ${app_name}
+      version: ${app_version}
+
+  # Distribution rules
+  - name: distribution_rules
+    type: DistributionRule
+    configuration:
+      sourceDistribution: StDistribution
+      serviceName: "*"
+      siteName: "*"
+      cityName: "*"
+      countryCodes:
+        - "CN" 
+        
+  - name: aql
+    type: Aql
+    configuration:
+      sourceArtifactory: StArtifactory
+      query: items.find({"$and":[{"$or":[{"repo":{"$eq":"deb"}},{"repo":{"$eq":"libs-release-local"}}]},{"$or":[{"name":{"$match":"${app_name}-*-${app_version}*"}},{"name":{"$match":"${app_name}_${app_version}_*"}}]}]})
+
+
+pipelines:
+  - name: CreateDistribution
+    steps:
+    - name: ExtractFileName
+      type: Bash
+      configuration:
+        inputResources:
+          - name: webhook
+        outputResources:
+          - name: aql
+      execution:
+          onExecute:
+            - set_payload webhook "$res_webhook_payload"
+            - echo "$res_webhook_payload" | jq '.' > payload.json
+            - set_payload webhook payload.json --file
+            - cat payload.json
+            - read_json payload.json "data.name"
+            - add_run_variables distribution_filename=$(read_json payload.json "data.name")
+            - echo $distribution_filename
+            - add_run_variables app_name=$(echo $distribution_filename | awk -F_ '{print $1}')
+            - add_run_variables app_version=$(echo $distribution_filename | awk -F_ '{print $2}')
+            - echo $app_name 
+            - echo $app_version
+            
+    - name: bundle
+      type: CreateReleaseBundle
+      configuration:
+        releaseBundleName: ${app_name}
+        releaseBundleVersion: ${app_version}
+        dryRun: false
+        sign: false
+        description: "Application deb distribution"
+        inputResources:
+          - name: aql
+            trigger: true
+        outputResources:
+          - name: release_bundle
+        releaseNotes:
+          syntax: markdown
+          content: |
+            ## Heading
+              * Bullet
+              * Points
+              
+    - name: sign
+      type: SignReleaseBundle
+      configuration:
+        inputResources:
+          - name: release_bundle
+        outputResources:
+          - name: signed_bundle
+
+    - name: distribute
+      type: DistributeReleaseBundle
+      configuration:
+        dryRun: false
+        inputResources:
+          - name: signed_bundle
+          - name: distribution_rules
